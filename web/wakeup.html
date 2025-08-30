@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html class="h-100" lang="en" data-bs-theme="dark">
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><text x='-2' y='13'>🌟</text></svg>" />
+  <title>Wakeup 💫</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
+  <style>
+    /* No arrows Chrome, Safari, Edge, Opera */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    /* No arrows Firefox */
+    input[type=number] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+  </style>
+</head>
+
+<body class="d-flex flex-column h-100 text-center">
+  <div class="container mt-3">
+    <h5 id="present-datetime"></h5>
+
+    <div class="row justify-content-md-center my-3">
+      <div class="col-md-auto">
+        <label for="alarm" class="form-label">Alarm Time</label>
+        <div class="input-group">
+          <input type="time" class="form-control" id="alarm" min="05:00" max="09:00" />
+          <span id="alarm-set" class="input-group-text">⏰</span>
+        </div>
+      </div>
+      <div class="col-md-auto">
+        <label for="sunrise" class="form-label">Sunrise Duration</label>
+        <div class="input-group">
+          <input class="form-control" id="sunrise" type="number" min="5" step="1" max="45" />
+          <span id="sunrise-set" class="input-group-text">💫</span>
+        </div>
+      </div>
+      <div class="col-md-auto">
+        <label for="volume" class="form-label">Volume</label>
+        <div class="input-group">
+          <input type="number" class="form-control" id="volume" min="0" step="1" max="30" />
+          <span id="volume-set" class="input-group-text">🔊</span>
+        </div>
+      </div>
+    </div>
+    <!-- <button id="set-alarm" type="button" class="btn btn-warning my-3">Set Alarm</button> -->
+  </div>
+
+  <footer class="footer mt-auto py-3 bg-body-tertiary">
+    <div class="container">
+      <span id="status" class="text-body-secondary"></span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
+    crossorigin="anonymous"></script>
+
+  <script type="module">
+    const ge = (id) => document.getElementById(id)
+    const presentDateTime = ge('present-datetime')
+    // const btn = ge('set-alarm')
+    const alarmTime = ge('alarm')
+    const alarmSet = ge('alarm-set')
+    const sunrise = ge('sunrise')
+    const sunriseSet = ge('sunrise-set')
+    const volume = ge('volume')
+    const volumeSet = ge('volume-set')
+    const statusTxt = ge('status')
+
+    try {
+      const rsp = await fetch(`http://wakeup.local/status`)
+      const status = await rsp.json()
+      console.log(status)
+      alarmTime.value = status.Alarm.length == 5 ? status.Alarm : status.Alarm.split(':').map(v => v.length == 2 ? v : '0' + v).join(':')
+      volume.value = status.Volume
+      sunrise.value = status.Sunrise
+      const d = new Date(status.Present)
+      presentDateTime.innerText = d.toGMTString().replace(' GMT', '') + ' 🕗'// (tPresent).replace('Z', ' ').split('T').reverse().join(' ')
+      statusTxt.innerText = '🏁 ' + status.CompileTime + ' ' + status.CompileDate + ' 🌡️' + status.Temperature + ' 🔋' + status.Battery
+    } catch (exp) {
+      console.log(exp)
+      presentDateTime.innerText = exp.message
+    }
+
+    // btn.onclick = SetAlarm
+    // Set Alarm
+    alarmTime.onchange = async function () {
+      // btn.disabled = true
+      alarmSet.innerText = '...'
+      const alarm = alarmTime.value.split(':')
+      try {
+        const rsp = await fetch(`http://wakeup.local/alarm?h=${alarm[0]}&m=${alarm[1]}`)
+        alarmSet.innerText = '⏰ ' + await rsp.text()
+      } catch (exp) {
+        console.log(exp)
+        alarmSet.innerText = exp.message
+      }
+      // btn.disabled = false
+    }
+    // Set Volume
+    volume.onchange = async function (e) {
+      minmax(e, e.target)
+      volumeSet.innerText = '...'
+      try {
+        const rsp = await fetch(`http://wakeup.local/volume?v=${volume.value}`)
+        volumeSet.innerText = '🔊 ' + await rsp.text()
+      } catch (exp) {
+        console.log(exp)
+        volumeSet.innerText = exp.message
+      }
+    }
+    // Set Sunrise
+    sunrise.onchange = async function (e) {
+      minmax(e, e.target)
+      sunriseSet.innerText = '...'
+      try {
+        const rsp = await fetch(`http://wakeup.local/sunrise?s=${sunrise.value}`)
+        sunriseSet.innerText = '💫 ' + await rsp.text()
+      } catch (exp) {
+        console.log(exp)
+        sunriseSet.innerText = exp.message
+      }
+    }
+
+    function minmax(e, target) {
+      e.preventDefault()
+      if (+target.value < +target.min) {
+        target.value = target.min
+      }
+      if (+target.value > +target.max) {
+        target.value = target.max
+      }
+      if (target.value == '' || Number(target.value) == NaN) {
+        target.value = '0'
+      }
+    }
+  </script>
+
+</body>
+
+</html>
