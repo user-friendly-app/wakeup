@@ -2,10 +2,6 @@
 #define EdSoftLED_H_
 
 #include <Arduino.h>
-#include <stdint.h>
-
-#define WS2812RGB 20
-#define WS2812GRB 21
 
 struct RGBW {  // Store of the original values
   uint8_t g;   // Green
@@ -15,7 +11,7 @@ struct RGBW {  // Store of the original values
 
 class EdSoftLED {
  public:
-  EdSoftLED(uint16_t lamps, const uint8_t pin, uint8_t lamp_type);
+  EdSoftLED(uint16_t lamps, const uint8_t pin);
   ~EdSoftLED();
 
   void off(void);
@@ -25,15 +21,13 @@ class EdSoftLED {
   uint8_t _pin_mask;
   uint16_t _count_led;
   RGBW *_pixels;
-  RGBW *_Orgpixels;
   rmt_data_t *_LEDdata;
   uint8_t _pin_number;
-  uint8_t _LEDtype;
   uint8_t getRed(uint32_t c);
   uint8_t getGreen(uint32_t c);
   uint8_t getBlue(uint32_t c);
   void fill(uint32_t RGBWColor, uint16_t FirstLed, uint16_t NoofLEDs);
-  void updateAll(void);
+  void sendData(void);
 };
 
 #endif /* EdSoftLED_H_ */
