@@ -29,30 +29,36 @@
   <div class="container mt-3">
     <h5 id="present-datetime"></h5>
 
-    <div class="row justify-content-md-center my-3">
+    <div class="row justify-content-md-center">
       <div class="col-md-auto">
-        <label for="alarm" class="form-label">Alarm Time</label>
+        <label for="alarm" class="form-label mt-3">Alarm Time</label>
         <div class="input-group">
           <input type="time" class="form-control" id="alarm" min="05:00" max="09:00" />
           <span id="alarm-set" class="input-group-text">⏰</span>
         </div>
       </div>
       <div class="col-md-auto">
-        <label for="sunrise" class="form-label">Sunrise Duration</label>
+        <label for="sunrise" class="form-label mt-3">Sunrise Duration</label>
         <div class="input-group">
           <input class="form-control" id="sunrise" type="number" min="5" step="1" max="45" />
           <span id="sunrise-set" class="input-group-text">💫</span>
         </div>
       </div>
       <div class="col-md-auto">
-        <label for="volume" class="form-label">Volume</label>
+        <label for="volume" class="form-label mt-3">Volume</label>
         <div class="input-group">
           <input type="number" class="form-control" id="volume" min="0" step="1" max="30" />
           <span id="volume-set" class="input-group-text">🔊</span>
         </div>
       </div>
+      <div class="col-md-auto">
+        <label for="" class="form-label mt-3">Power</label>
+        <div class="input-group">
+          <button id="power" type="button" class="btn">On</button>
+          <span class="input-group-text">⚡</span>
+        </div>
+      </div>
     </div>
-    <!-- <button id="set-alarm" type="button" class="btn btn-warning my-3">Set Alarm</button> -->
   </div>
 
   <footer class="footer mt-auto py-3 bg-body-tertiary">
@@ -68,7 +74,6 @@
   <script type="module">
     const ge = (id) => document.getElementById(id)
     const presentDateTime = ge('present-datetime')
-    // const btn = ge('set-alarm')
     const alarmTime = ge('alarm')
     const alarmSet = ge('alarm-set')
     const sunrise = ge('sunrise')
@@ -76,6 +81,7 @@
     const volume = ge('volume')
     const volumeSet = ge('volume-set')
     const statusTxt = ge('status')
+    const power = ge('power')
 
     try {
       const rsp = await fetch(`http://wakeup.local/status`)
@@ -84,18 +90,32 @@
       alarmTime.value = status.Alarm.length == 5 ? status.Alarm : status.Alarm.split(':').map(v => v.length == 2 ? v : '0' + v).join(':')
       volume.value = status.Volume
       sunrise.value = status.Sunrise
+      powerFn(status.Power == 1)
       const d = new Date(status.Present)
       presentDateTime.innerText = d.toGMTString().replace(' GMT', '') + ' 🕗'// (tPresent).replace('Z', ' ').split('T').reverse().join(' ')
-      statusTxt.innerText = '🏁 ' + status.CompileTime + ' ' + status.CompileDate + ' 🌡️' + status.Temperature + ' 🔋' + status.Battery
+      statusTxt.innerText = '🏁 ' + status.CompileTime + ' ' + status.CompileDate + ' 🌡️ ' + status.Temperature + ' 🔋 ' + status.Battery
     } catch (exp) {
       console.log(exp)
       presentDateTime.innerText = exp.message
     }
 
-    // btn.onclick = SetAlarm
+    function powerFn(p) {
+      power.innerText = p ? 'On' : 'Off'
+      power.classList.remove('btn-success', 'btn-outline-danger')
+      power.classList.add(p ? 'btn-success' : 'btn-outline-danger')
+    }
+
+    power.onclick = async () => {
+      try {
+        const rsp = await fetch(`http://wakeup.local/power`)
+        powerFn((await rsp.text()) == 1)
+      } catch (exp) {
+        console.log(exp)
+      }
+    }
+
     // Set Alarm
     alarmTime.onchange = async function () {
-      // btn.disabled = true
       alarmSet.innerText = '...'
       const alarm = alarmTime.value.split(':')
       try {
@@ -105,8 +125,8 @@
         console.log(exp)
         alarmSet.innerText = exp.message
       }
-      // btn.disabled = false
     }
+
     // Set Volume
     volume.onchange = async function (e) {
       minmax(e, e.target)
@@ -119,6 +139,7 @@
         volumeSet.innerText = exp.message
       }
     }
+
     // Set Sunrise
     sunrise.onchange = async function (e) {
       minmax(e, e.target)
