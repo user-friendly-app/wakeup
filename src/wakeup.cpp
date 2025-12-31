@@ -19,15 +19,16 @@ const char* contentTypeText = "text/html; charset=utf-8";
 DFRobotDFPlayerMini music;
 extern const uint8_t leds = 100;
 const uint8_t secondsTimer = 1; // Сколько секунд ждать таймера
-EdSoftLED sunrise(leds, GPIO_NUM_4);
-int alarmSunriseHours = 6, alarmSunriseMinutes = 20, alarmMusicHours = 6, alarmMusicMinutes = 30, day = -1;
+EdSoftLED sunrise(leds, GPIO_NUM_5);
+int alarmSunriseHours = 6, alarmSunriseMinutes = 55, alarmMusicHours = 7, alarmMusicMinutes = 0, day = -1;
 uint8_t volume = 25, sunriseMinutes = 5;
 bool power = true; // Чтобы не разбирать будильник и не вынимать батарейку
 bool alarmSunrise = true, alarmMusic = true;  
 int sunriseSeconds = 0; // Сколько сейчас длится рассвет
-int sunriseDurationSeconds; // Длительность рассвета
+int sunriseDurationSeconds; // Длительность всего рассвета
 esp_timer_handle_t once_timer;
 uint16_t distance;
+// EdSoftLED lamp(1, GPIO_NUM_8);
 
 extern const uint8_t wakeup_html[] asm("_binary_web_wakeup_html_start");
 WebServer web(80);
@@ -53,6 +54,7 @@ void SetAlarm() {
 void SetSunrise() {
   sunriseMinutes = atoi(web.arg("s").c_str());  // Duration in Minutes
   sunriseDurationSeconds = sunriseMinutes * 60;
+  sunriseSeconds = sunriseDurationSeconds; // Иначе влючится рассвет
   UpdateAlarmSunrise();
   web.send(200, contentTypeText, String(sunriseMinutes));
 }
@@ -78,6 +80,7 @@ static void WiFiEvent(WiFiEvent_t event) {
 }
 
 void SetupWiFi() {
+  WiFi.setHostname("Wakeup");
   WiFi.mode(WIFI_STA);
   WiFi.begin("Ah", "85k$wNRpSs=GV_S");
   WiFi.setAutoReconnect(true);  // automatically reconnect to the previously connected access point
@@ -107,7 +110,7 @@ void Alarms() {
   }
   if (alarmMusic && hs == alarmMusicHours && ms == alarmMusicMinutes) {
     alarmMusic = false; // Без этого будильник каждую секунду будет срабатывать
-    ESP_ERROR_CHECK(esp_timer_start_once(once_timer, 10 * 60e6)); // 10 минут музыки и света
+    ESP_ERROR_CHECK(esp_timer_start_once(once_timer, 7 * 60e6)); // 7 минут музыки и света
     music.randomAll();
     Serial.println(F("Alarm Music"));
   }
@@ -175,6 +178,7 @@ void SetupSun() {
 // ! Если в setup зависнет или ошибка будет, то для прошивки зажать кнопку ноль и воткнуть USB
 void setup() {
   pinMode(GPIO_NUM_15, OUTPUT);
+  // lamp.off();
   Serial.begin(76800);
   delay(1000); // Для этого: [     1][E][EdSoftLED.cpp:12] EdSoftLED(): real tick set to: 100
   Serial.println(F("\nBoot ToF"));
@@ -208,7 +212,7 @@ void setup() {
 
   Serial.println(F("Boot NTP"));
   datetime.begin();
-
+  datetime.forceUpdate(); // Иначе может не обновить
   Serial.println(F("Boot Timer"));
   // create timer parameters..
   const esp_timer_create_args_t second_timer_args = {
@@ -239,7 +243,7 @@ void Distance() {
   auto d2 = tof.readRangeContinuousMillimeters();
   if (d2 < float(distance * 0.85)) {
     static unsigned long cancelMillis;
-    if (millis() - cancelMillis >= 400) {
+    if (millis() - cancelMillis >= 600) {
       cancelMillis = millis();  // restart this TIMER
       Serial.printf("%d %d \t", d2, distance);
       Cancel();
