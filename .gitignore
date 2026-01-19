@@ -1,3 +1,4 @@
 .pio
 .vscode
 documents
+src/env.h

@@ -10,8 +10,8 @@
 #include "DFRobotDFPlayerMini.h"  // https://github.com/DFRobot/DFRobotDFPlayerMini
 #include "EdSoftLED.h"            // https://github.com/ednieuw/EdSoftLED
 #include "NTPClient.h"            // https://github.com/taranais/NTPClient
-#include "VL53L0X.h"
-#include "utils.h"  // Моя либа
+#include "VL53L0X.h"              // https://github.com/pololu/vl53l0x-arduino
+#include "env.h"
 
 VL53L0X tof;  // Time of Flight
 uint32_t OrangeColor = 0X00FF0000, YellowColor = 0X000000FF, WhiteColor = 0X0000FF00;
@@ -34,7 +34,7 @@ volatile bool wifiConnect = false;  // Роутер работает в сети
 extern const uint8_t wakeup_html[] asm("_binary_web_wakeup_html_start");
 WebServer web(80);
 WiFiUDP ntpUDP;
-NTPClient datetime(ntpUDP, "1.ru.pool.ntp.org", 10800, 1 * 24 * 3600 * 1000);  // time server pool, offset in seconds,  update interval in milliseconds. ESP time ~1.7 секунды за сутки
+NTPClient datetime(ntpUDP, "1.ru.pool.ntp.org", 3 * 3600, 1 * 24 * 3600 * 1000);  // time server pool, offset in seconds,  update interval in milliseconds. ESP дрейф ~1.7 секунды за сутки
 esp_timer_handle_t second_timer;
 
 void UpdateAlarmSunrise() {
@@ -82,12 +82,26 @@ void wifiCheck(void* pvParameters) {
   }
 }
 
+void WiFiEvent(WiFiEvent_t event) {
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:  // Disconnected from WiFi access point
+      WiFi.reconnect();
+      break;
+    // case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED: // WiFi client disconnected
+    //   break;
+    default:
+      break;
+  }
+}
+
 void SetupWiFi() {
   WiFi.setHostname("Wakeup");
   WiFi.mode(WIFI_STA);
-  WiFi.begin("Ah", "85k$wNRpSs=GV_S");
   WiFi.setAutoReconnect(true);  // automatically reconnect to the previously connected access point
-  xTaskCreate(wifiCheck, "wifiCheck", 8192, NULL, 1, NULL);
+  // WiFi.persistent(true);
+  WiFi.onEvent(WiFiEvent);
+  WiFi.begin(SSID, PASSWORD);
+  // xTaskCreate(wifiCheck, "wifiCheck", 8192, NULL, 1, NULL);
 }
 
 void Alarms() {
@@ -112,6 +126,10 @@ void Alarms() {
     music.randomAll();
     Serial.println(F("Alarm Music"));
   }
+}
+
+double Map(double v, double in_min, double in_max, double out_min, double out_max) {
+  return (v - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 // Три раза поменять цвета на всех лампочках
@@ -189,7 +207,7 @@ void distanceCheck(void* pvParameters) {
       digitalWrite(GPIO_NUM_15, LOW);
     }
 
-    vTaskDelay(100 / portTICK_RATE_MS); // экономит ресурс лазера
+    vTaskDelay(100 / portTICK_RATE_MS);  // экономит ресурс лазера
   }
 }
 
@@ -210,7 +228,7 @@ void setup() {
   distance = tof.readRangeContinuousMillimeters();
   Serial.println(F("Boot Sun"));
   SetupSun();
-  Serial.print(F("Boot Wi-Fi"));
+  Serial.println(F("Boot Wi-Fi"));
   SetupWiFi();
   Serial.print(F("Boot DNS"));
   if (MDNS.begin("wakeup")) {  // Open http://wakeup.local
@@ -253,13 +271,13 @@ void setup() {
   music.begin(Serial0, false, true);
   music.volume(volume);
   setCpuFrequencyMhz(80);
-  xTaskCreate(distanceCheck, "distanceCheck", 8192, NULL, 1, NULL); // При использовании FreeRTOS каждый таск выполнится в строго заданное время, лишь бы хватило мощности процессора. в Arduino весь код выполняется в loop, в одном потоке, если что то притормозило — остальные задачи выполнятся с задержкой. Особенно это заметно при управлении быстрыми процессами.
+  xTaskCreate(distanceCheck, "distanceCheck", 8192, NULL, 1, NULL);  // При использовании FreeRTOS каждый таск выполнится в строго заданное время, лишь бы хватило мощности процессора. в Arduino весь код выполняется в loop, в одном потоке, если что то притормозило — остальные задачи выполнятся с задержкой. Особенно это заметно при управлении быстрыми процессами.
   Serial.println(F("Boot complete"));
 }
 
 void loop() {
-  if (wifiConnect) {
-    web.handleClient();  // Handle incoming requests
-    datetime.update();
-  }
+  // if (wifiConnect) {
+  web.handleClient();  // Handle incoming requests
+  datetime.update();
+  // }
 }
